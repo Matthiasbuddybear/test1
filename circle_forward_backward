@@ -1,0 +1,106 @@
+from machine import Pin, PWM
+import time
+
+print_control = 10
+
+forward = [-1,1,-1,1]
+north_west = [-1,1,-1,1]
+right = [-1,-1,-1,-1]
+left = [1,1,1,1]
+reverse = [1,-1,1,-1]
+
+power_factor = 8
+
+#(p,m,t) = tuple
+
+#eight = [80,left,0.3,80,left,0.3,80,left,0.3,80,left,0.3,80,left,0.3,80,left,0.3,80,left,0.3,80,left,0.3,80,forward,0.9,80,right,0.3,80,right,0.3,80,right,0.3,80,right,0.3,80,right,0.3,80,right,0.3,80,right,0.3,80,right,0.3,0,forward,1]
+eight = [80,reverse,8,80,8,0,forward,0.3]
+eight2 = [80,forward,8,80,north_west,8,0,forward,0.3]
+eight3 = [80,north_west,7.7,80,reverse,6.4,0,forward,0.3]
+
+def mapping(x, in_min, in_max, out_min, out_max):
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+class Motor():
+    def __init__(self, pin_a, pin_b, dir=1):
+        self.pwm1 = PWM(Pin(pin_a, Pin.OUT))
+        self.pwm2 = PWM(Pin(pin_b, Pin.OUT))
+        self.pwm1.freq(20000)
+        self.pwm2.freq(20000)
+        self.dir = dir
+        self.current_power = 0
+
+    def run(self, power:int):
+        self.current_power = power
+        if power == 0:
+            self.pwm1.duty_u16(0xffff)
+            self.pwm2.duty_u16(0xffff)
+        else:
+            value = mapping(abs(power), 0, 100, 20, 100)
+            value = int(value / 100.0 * 0xffff)
+
+            if power*self.dir > 0:
+                self.pwm1.duty_u16(0xffff - value)
+                self.pwm2.duty_u16(0xffff)
+            else:
+                self.pwm1.duty_u16(0xffff)
+                self.pwm2.duty_u16(0xffff - value)
+
+class Car():
+    def __init__(self):
+        left_front  = Motor(17, 16, dir=-1)
+        right_front = Motor(15, 14, dir= 1)
+        left_rear   = Motor(13, 12, dir=-1)
+        right_rear  = Motor(11, 10, dir= 1)
+    def walk(self, power, direction, timer):
+        left_front  = Motor(17, 16, dir= direction[0])
+        right_front = Motor(15, 14, dir= direction[1])
+        left_rear   = Motor(13, 12, dir= direction[2])
+        right_rear  = Motor(11, 10, dir= direction[3])
+        if direction == left:
+            right_power = power
+            left_power = power/power_factor
+            
+        elif direction == right:
+            right_power = power/power_factor
+            left_power = power
+        
+        elif direction == north_west:
+            right_power = power
+            left_power = power/power_factor
+
+        elif direction == reverse:
+            right_power = power
+            left_power = power/power_factor
+
+        else:
+            right_power = power
+            left_power = power
+            
+        left_front.run(left_power)
+        right_front.run(right_power)
+        left_rear.run(left_power)
+        right_rear.run(right_power)
+        time.sleep(timer)
+    def runner(self, commands):
+        for i in range(0,len(commands),3):
+            self.walk(commands[i],commands[i + 1],commands[i + 2])
+
+
+if __name__ == '__main__':
+
+    # init
+    #left_front  = Motor(17, 16, dir=-1)
+    #right_front = Motor(15, 14, dir= 1)
+    #left_rear   = Motor(13, 12, dir=-1)
+    #right_rear  = Motor(11, 10, dir= 1)
+
+    try:
+        # forward
+        goat = Car()
+#        goat.walk(carr,power)
+        goat.runner(eight3)
+
+    finally:
+        # stop
+        time.sleep(0.2)
